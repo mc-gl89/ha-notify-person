@@ -1,5 +1,64 @@
 # Services for Notify Person integration
 
+notify_person:
+  name: Notify Person
+  description: Send a notification to a specific person by name.
+  fields:
+    person:
+      name: Person
+      description: The person to notify (name or entity_id).
+      required: true
+      example: "John Doe"
+      selector:
+        text:
+    message:
+      name: Message
+      description: The message to send.
+      required: true
+      example: "Your package arrived!"
+      selector:
+        text:
+    title:
+      name: Title
+      description: Optional title for the notification.
+      required: false
+      example: "Home Assistant"
+      selector:
+        text:
+    data:
+      name: Data
+      description: Extra data for the notification.
+      required: false
+      selector:
+        object:
+    channel:
+      name: Channel
+      description: Notification channel override.
+      required: false
+      example: "alarms"
+      selector:
+        text:
+    criticality:
+      name: Criticality
+      description: Override default criticality.
+      required: false
+      selector:
+        select:
+          options:
+            - normal
+            - high
+            - critical
+    importance:
+      name: Importance
+      description: Override default importance.
+      required: false
+      selector:
+        select:
+          options:
+            - default
+            - low
+            - high
+
 notify_group:
   name: Notify Group
   description: Send a notification to a group of persons.
@@ -31,31 +90,6 @@ notify_group:
       required: false
       selector:
         object:
-
-notify_person:
-  name: Notify Person
-  description: Send a notification to a specific person by name.
-  fields:
-    person:
-      name: Person
-      description: The person to notify.
-      required: true
-      example: "John Doe"
-      selector:
-        text:
-    message:
-      name: Message
-      description: The message to send.
-      required: true
-      example: "Your package arrived!"
-      selector:
-        text:
-    title:
-      name: Title
-      description: Optional title for the notification.
-      required: false
-      selector:
-        text:
     channel:
       name: Channel
       description: Notification channel override.
@@ -73,3 +107,78 @@ notify_person:
             - normal
             - high
             - critical
+    importance:
+      name: Importance
+      description: Override default importance.
+      required: false
+      selector:
+        select:
+          options:
+            - default
+            - low
+            - high
+
+add_group:
+  name: Add Notification Group
+  description: Create or update a notification group.
+  fields:
+    group:
+      name: Group Name
+      description: The name of the group.
+      required: true
+      selector:
+        text:
+    persons:
+      name: Persons
+      description: List of person names to include in the group.
+      required: true
+      selector:
+        object:
+
+remove_group:
+  name: Remove Notification Group
+  description: Remove a notification group.
+  fields:
+    group:
+      name: Group Name
+      description: The name of the group to remove.
+      required: true
+      selector:
+        text:
+
+update_person_defaults:
+  name: Update Person Defaults
+  description: Update default notification settings for a person.
+  fields:
+    person:
+      name: Person
+      description: The person to update.
+      required: true
+      selector:
+        text:
+    channel:
+      name: Default Channel
+      description: Default notification channel.
+      required: false
+      selector:
+        text:
+    criticality:
+      name: Default Criticality
+      description: Default criticality level.
+      required: false
+      selector:
+        select:
+          options:
+            - normal
+            - high
+            - critical
+    importance:
+      name: Default Importance
+      description: Default importance level.
+      required: false
+      selector:
+        select:
+          options:
+            - default
+            - low
+            - high
