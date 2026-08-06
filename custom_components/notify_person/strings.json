@@ -2,35 +2,33 @@
   "title": "Notify Person",
   "config": {
     "step": {
-      "user": {
-        "title": "Notify Person Setup",
-        "description": "Set up person-based notifications in Home Assistant.",
-        "data": {
-          "integration_name": "Integration Name"
-        }
-      },
       "persons": {
         "title": "Select Persons",
-        "description": "Choose which persons should be available for notifications.",
+        "description": "Choose which Home Assistant persons to manage for notifications.",
         "data": {
           "selected_persons": "Persons"
         }
+      },
+      "devices": {
+        "title": "Assign Devices",
+        "description": "Select notification devices for {person_name}.",
+        "data": {
+          "notify_targets": "Notification Devices"
+        }
+      },
+      "groups": {
+        "title": "Notification Groups",
+        "description": "Define notification groups. You can create groups later via services.",
+        "data": {}
       }
     },
     "abort": {
-      "single_instance_allowed": "Only a single instance is allowed."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Notification Defaults",
-        "description": "Configure default notification settings.",
-        "data": {
-          "default_channel": "Default Channel",
-          "default_criticality": "Default Criticality"
-        }
-      }
+      "single_instance_allowed": "Only a single instance is allowed.",
+      "no_persons_found": "No person entities found in Home Assistant."
+    },
+    "error": {
+      "no_persons_selected": "Please select at least one person.",
+      "no_devices_selected": "Please select at least one notification device."
     }
   }
 }

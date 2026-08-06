@@ -1,122 +1,10 @@
 # Services for Notify Person integration
 
-notify_person:
-  name: Notify Person
-  description: Send a notification to a specific person by name.
-  fields:
-    person:
-      name: Person
-      description: The person to notify (name or entity_id).
-      required: true
-      example: "John Doe"
-      selector:
-        text:
-    message:
-      name: Message
-      description: The message to send.
-      required: true
-      example: "Your package arrived!"
-      selector:
-        text:
-    title:
-      name: Title
-      description: Optional title for the notification.
-      required: false
-      example: "Home Assistant"
-      selector:
-        text:
-    data:
-      name: Data
-      description: Extra data for the notification.
-      required: false
-      selector:
-        object:
-    channel:
-      name: Channel
-      description: Notification channel override.
-      required: false
-      example: "alarms"
-      selector:
-        text:
-    criticality:
-      name: Criticality
-      description: Override default criticality.
-      required: false
-      selector:
-        select:
-          options:
-            - normal
-            - high
-            - critical
-    importance:
-      name: Importance
-      description: Override default importance.
-      required: false
-      selector:
-        select:
-          options:
-            - default
-            - low
-            - high
+# Native notify services are automatically created:
+# notify.person_xxx — for each configured person
+# notify.group_xxx  — for each configured group
 
-notify_group:
-  name: Notify Group
-  description: Send a notification to a group of persons.
-  fields:
-    group:
-      name: Group
-      description: The notification group to send to.
-      required: true
-      example: "family"
-      selector:
-        text:
-    message:
-      name: Message
-      description: The message to send.
-      required: true
-      example: "Dinner is ready!"
-      selector:
-        text:
-    title:
-      name: Title
-      description: Optional title for the notification.
-      required: false
-      example: "Home Assistant"
-      selector:
-        text:
-    data:
-      name: Data
-      description: Extra data for the notification.
-      required: false
-      selector:
-        object:
-    channel:
-      name: Channel
-      description: Notification channel override.
-      required: false
-      example: "alarms"
-      selector:
-        text:
-    criticality:
-      name: Criticality
-      description: Override default criticality.
-      required: false
-      selector:
-        select:
-          options:
-            - normal
-            - high
-            - critical
-    importance:
-      name: Importance
-      description: Override default importance.
-      required: false
-      selector:
-        select:
-          options:
-            - default
-            - low
-            - high
+# Use these to manage configuration at runtime:
 
 add_group:
   name: Add Notification Group
@@ -130,7 +18,7 @@ add_group:
         text:
     persons:
       name: Persons
-      description: List of person names to include in the group.
+      description: List of person names to include.
       required: true
       selector:
         object:
@@ -146,9 +34,9 @@ remove_group:
       selector:
         text:
 
-update_person_defaults:
-  name: Update Person Defaults
-  description: Update default notification settings for a person.
+update_person:
+  name: Update Person Devices
+  description: Update notification devices for a person.
   fields:
     person:
       name: Person
@@ -156,29 +44,13 @@ update_person_defaults:
       required: true
       selector:
         text:
-    channel:
-      name: Default Channel
-      description: Default notification channel.
-      required: false
+    devices:
+      name: Devices
+      description: New list of notify services.
+      required: true
       selector:
-        text:
-    criticality:
-      name: Default Criticality
-      description: Default criticality level.
-      required: false
-      selector:
-        select:
-          options:
-            - normal
-            - high
-            - critical
-    importance:
-      name: Default Importance
-      description: Default importance level.
-      required: false
-      selector:
-        select:
-          options:
-            - default
-            - low
-            - high
+        object:
+
+reload:
+  name: Reload
+  description: Reload Notify Person configuration.
