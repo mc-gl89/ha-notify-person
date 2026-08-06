@@ -1,0 +1,11 @@
+{
+  "domain": "notify_person",
+  "name": "Notify Person",
+  "codeowners": ["@geee"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/geee/ha-notify-person",
+  "iot_class": "local_pushes",
+  "requirements": [],
+  "version": "0.1.0"
+}
