@@ -1,6 +1,8 @@
 # Notify Person
 
-A Home Assistant custom integration for person-based notifications.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+
+A Home Assistant custom integration for **person-based notifications**.
 
 ## Features
 
@@ -14,9 +16,11 @@ A Home Assistant custom integration for person-based notifications.
 
 ### HACS (recommended)
 
-1. Add this repository as a custom repository in HACS
-2. Install "Notify Person"
-3. Restart Home Assistant
+1. Open HACS → Integrations → Custom Repositories
+2. Add repository URL: `https://github.com/YOUR_USERNAME/ha-notify-person`
+3. Category: Integration
+4. Install "Notify Person"
+5. Restart Home Assistant
 
 ### Manual
 
@@ -34,13 +38,30 @@ Configure via the UI (Config Flow). The integration will:
 
 ## Services
 
+### `notify_person.notify_person`
+
+Send a notification to a specific person by name.
+
+```yaml
+service: notify_person.notify_person
+data:
+  person: "John Doe"
+  message: "Your package arrived!"
+  title: "Delivery"
+  criticality: high
+```
+
 ### `notify_person.notify_group`
 
 Send a notification to a defined group.
 
-### `notify_person.notify_person`
-
-Send a notification to a specific person by name.
+```yaml
+service: notify_person.notify_group
+data:
+  group: "family"
+  message: "Dinner is ready!"
+  title: "Kitchen"
+```
 
 ## Development
 

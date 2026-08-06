@@ -1,0 +1,7 @@
+{
+  "name": "Notify Person",
+  "content_in_root": false,
+  "country": ["DE"],
+  "render_readme": true,
+  "iot_class": "Local Pushes"
+}
