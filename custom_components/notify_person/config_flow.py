@@ -31,7 +31,7 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._current_person_idx: int = 0
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Start config flow — skip to persons selection."""
+        """Start config flow -- skip to persons selection."""
         return await self.async_step_persons(user_input)
 
     async def async_step_persons(
@@ -146,7 +146,7 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=STEP_GROUPS,
             data_schema=vol.Schema({
-                vol.Optional("groups"): dict,  # Simplified — groups defined via service later
+                vol.Optional("groups"): dict,
             }),
             description_placeholders={},
         )
@@ -170,11 +170,42 @@ class NotifyPersonOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Manage options."""
+        """Manage options -- show all persons with device assignment on one page."""
+        from .storage import NotifyPersonStorage
+        
+        storage = NotifyPersonStorage(self.hass)
+        await storage.async_load()
+        
+        persons = storage.get_persons()
+        
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
+            # Process device assignments from the form
+            for pid in persons:
+                key = f"devices_{pid}"
+                if key in user_input:
+                    persons[pid]["notify_targets"] = user_input[key]
+            
+            await storage.async_save()
+            
+            # Also update the config entry data
+            return self.async_create_entry(title="", data={})
+        
+        # Build schema with all persons and their device options
+        notify_services = self.hass.services.async_services().get("notify", {})
+        device_options = {}
+        for svc in notify_services:
+            if svc.startswith("person_") or svc.startswith("group_"):
+                continue
+            friendly = svc.replace("mobile_app_", "").replace("_", " ").title()
+            device_options[svc] = friendly
+        
+        schema_fields = {}
+        for pid, config in persons.items():
+            current_targets = config.get("notify_targets", [])
+            schema_fields[vol.Optional(f"devices_{pid}", default=current_targets)] = cv.multi_select(device_options)
+        
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({}),
+            data_schema=vol.Schema(schema_fields),
+            description_placeholders={"count": str(len(persons))},
         )

@@ -1,0 +1,35 @@
+{
+  "title": "Notify Person",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Notify Person Setup",
+        "description": "Wähle die Personen aus, die du verwalten möchtest."
+      },
+      "persons": {
+        "title": "Personen auswählen",
+        "description": "Wähle die Home Assistant Personen, die Benachrichtigungen erhalten sollen."
+      },
+      "devices": {
+        "title": "Geräte zuweisen — {person_name}",
+        "description": "Wähle die Notify-Services (Mobile Apps) für diese Person."
+      },
+      "groups": {
+        "title": "Benachrichtigungsgruppen",
+        "description": "Erstelle Gruppen von Personen für gemeinsame Benachrichtigungen."
+      }
+    },
+    "error": {
+      "no_persons_selected": "Mindestens eine Person muss ausgewählt werden.",
+      "no_persons_found": "Keine Personen in Home Assistant gefunden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Notify Person Einstellungen",
+        "description": "Personen und Geräte verwalten."
+      }
+    }
+  }
+}

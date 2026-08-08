@@ -1,56 +1,100 @@
-# Services for Notify Person integration
-
-# Native notify services are automatically created:
-# notify.person_xxx — for each configured person
-# notify.group_xxx  — for each configured group
-
-# Use these to manage configuration at runtime:
-
-add_group:
-  name: Add Notification Group
-  description: Create or update a notification group.
-  fields:
-    group:
-      name: Group Name
-      description: The name of the group.
-      required: true
-      selector:
-        text:
-    persons:
-      name: Persons
-      description: List of person names to include.
-      required: true
-      selector:
-        object:
-
-remove_group:
-  name: Remove Notification Group
-  description: Remove a notification group.
-  fields:
-    group:
-      name: Group Name
-      description: The name of the group to remove.
-      required: true
-      selector:
-        text:
-
-update_person:
-  name: Update Person Devices
-  description: Update notification devices for a person.
+simple_notify:
+  name: Simple Notify
+  description: Sende eine einfache Benachrichtigung an eine Person oder Gruppe.
   fields:
     person:
-      name: Person
-      description: The person to update.
+      name: Person / Gruppe
+      description: Name der Person oder Gruppe aus der Notify Person Konfiguration.
       required: true
       selector:
         text:
-    devices:
-      name: Devices
-      description: New list of notify services.
+    message:
+      name: Nachricht
+      description: Inhalt der Benachrichtigung.
       required: true
       selector:
-        object:
+        text:
+          multiline: true
+    title:
+      name: Titel
+      description: Titel der Benachrichtigung.
+      required: false
+      default: "Home Assistant"
+      selector:
+        text:
 
-reload:
-  name: Reload
-  description: Reload Notify Person configuration.
+advanced_notify:
+  name: Advanced Notify
+  description: Erweiterte Benachrichtigung mit allen Optionen (Kanal, Priorität, Aktionen, etc.).
+  fields:
+    person:
+      name: Person / Gruppe
+      description: Name der Person oder Gruppe aus der Notify Person Konfiguration.
+      required: true
+      selector:
+        text:
+    message:
+      name: Nachricht
+      description: Inhalt der Benachrichtigung.
+      required: true
+      selector:
+        text:
+          multiline: true
+    title:
+      name: Titel
+      description: Titel der Benachrichtigung.
+      required: false
+      default: "Home Assistant"
+      selector:
+        text:
+    channel:
+      name: Kanal
+      description: Android Benachrichtigungskanal (wird automatisch erstellt).
+      required: false
+      example: "Wartung"
+      selector:
+        text:
+    priority:
+      name: Priorität
+      description: Priorität der Benachrichtigung.
+      required: false
+      default: "normal"
+      selector:
+        select:
+          options:
+            - "normal"
+            - "high"
+            - "low"
+    critical:
+      name: Kritisch
+      description: Kritische Benachrichtigung (bypass DND auf iOS, High Priority auf Android).
+      required: false
+      default: false
+      selector:
+        boolean:
+    tag:
+      name: Tag
+      description: Tag für Benachrichtigungsersetzung oder -entfernung.
+      required: false
+      example: "bewaesserung"
+      selector:
+        text:
+    persistent:
+      name: Persistent
+      description: Bleibt im Notification Center bis explizit entfernt.
+      required: false
+      default: false
+      selector:
+        boolean:
+    actions:
+      name: Aktionen
+      description: Interaktive Buttons (Action ID und Title pro Button).
+      required: false
+      selector:
+        object:
+    data:
+      name: Zusätzliche Daten
+      description: Beliebige zusätzliche Daten für die mobile App.
+      required: false
+      selector:
+        object:

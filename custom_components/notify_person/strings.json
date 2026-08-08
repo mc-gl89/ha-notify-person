@@ -2,33 +2,96 @@
   "title": "Notify Person",
   "config": {
     "step": {
+      "user": {
+        "title": "Notify Person Setup",
+        "description": "Wähle die Personen aus, die du verwalten möchtest."
+      },
       "persons": {
-        "title": "Select Persons",
-        "description": "Choose which Home Assistant persons to manage for notifications.",
-        "data": {
-          "selected_persons": "Persons"
-        }
+        "title": "Personen auswählen",
+        "description": "Wähle die Home Assistant Personen, die Benachrichtigungen erhalten sollen."
       },
       "devices": {
-        "title": "Assign Devices",
-        "description": "Select notification devices for {person_name}.",
-        "data": {
-          "notify_targets": "Notification Devices"
-        }
+        "title": "Geräte zuweisen — {person_name}",
+        "description": "Wähle die Notify-Services (Mobile Apps) für diese Person."
       },
       "groups": {
-        "title": "Notification Groups",
-        "description": "Define notification groups. You can create groups later via services.",
-        "data": {}
+        "title": "Benachrichtigungsgruppen",
+        "description": "Erstelle Gruppen von Personen für gemeinsame Benachrichtigungen."
       }
     },
-    "abort": {
-      "single_instance_allowed": "Only a single instance is allowed.",
-      "no_persons_found": "No person entities found in Home Assistant."
-    },
     "error": {
-      "no_persons_selected": "Please select at least one person.",
-      "no_devices_selected": "Please select at least one notification device."
+      "no_persons_selected": "Mindestens eine Person muss ausgewählt werden.",
+      "no_persons_found": "Keine Personen in Home Assistant gefunden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Notify Person Einstellungen",
+        "description": "Personen und Geräte verwalten."
+      }
+    }
+  },
+  "services": {
+    "simple_notify": {
+      "name": "Simple Notify",
+      "description": "Sende eine einfache Benachrichtigung an Personen oder Gruppen.",
+      "fields": {
+        "person": {
+          "name": "Person / Gruppe",
+          "description": "Name der Person oder Gruppe."
+        },
+        "message": {
+          "name": "Nachricht",
+          "description": "Inhalt der Benachrichtigung."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Titel der Benachrichtigung."
+        }
+      }
+    },
+    "advanced_notify": {
+      "name": "Advanced Notify",
+      "description": "Erweiterte Benachrichtigung mit allen Optionen.",
+      "fields": {
+        "person": {
+          "name": "Person / Gruppe",
+          "description": "Name der Person oder Gruppe."
+        },
+        "message": {
+          "name": "Nachricht",
+          "description": "Inhalt der Benachrichtigung."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Titel der Benachrichtigung."
+        },
+        "channel": {
+          "name": "Kanal",
+          "description": "Android Benachrichtigungskanal."
+        },
+        "priority": {
+          "name": "Priorität",
+          "description": "normal, high, low"
+        },
+        "critical": {
+          "name": "Kritisch",
+          "description": "Kritische Benachrichtigung (bypass DND)."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Tag für Ersetzung/Entfernung."
+        },
+        "persistent": {
+          "name": "Persistent",
+          "description": "Bleibt im Notification Center."
+        },
+        "actions": {
+          "name": "Aktionen",
+          "description": "Interaktive Buttons."
+        }
+      }
     }
   }
 }

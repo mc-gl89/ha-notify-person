@@ -7,38 +7,32 @@ CONF_PERSONS = "persons"
 CONF_NOTIFY_TARGETS = "notify_targets"
 CONF_DEFAULTS = "defaults"
 
-# Notification default keys
+# Notification data keys
 CONF_CHANNEL = "channel"
-CONF_CRITICALITY = "criticality"
-CONF_IMPORTANCE = "importance"
-CONF_PERSISTENT = "persistent"
-CONF_COLOR = "color"
 CONF_PRIORITY = "priority"
+CONF_CRITICAL = "critical"
 CONF_TAG = "tag"
 CONF_ACTIONS = "actions"
-CONF_SOUND = "sound"
-CONF_VIBRATION = "vibration"
-CONF_LED = "led"
-CONF_TIMEOUT = "timeout"
-CONF_INTERruption_level = "interruption_level"  # iOS
-CONF_CATEGORY = "category"  # iOS (for action buttons)
+CONF_PERSISTENT = "persistent"
+CONF_TTL = "ttl"
+CONF_COLOR = "color"
+CONF_GROUP = "group"
+CONF_IMPORTANCE = "importance"
+CONF_STICKY = "sticky"
+CONF_IMAGE = "image"
+CONF_ACTION_URI = "action_uri"
 
 # Values
-DEFAULT_CHANNEL = "general"
-DEFAULT_CRITICALITY = "normal"  # normal, high, critical
-DEFAULT_IMPORTANCE = "default"    # default, low, high
+DEFAULT_CHANNEL = "General"
+DEFAULT_PRIORITY = "normal"
+DEFAULT_CRITICAL = False
 DEFAULT_PERSISTENT = False
-DEFAULT_COLOR = ""
-DEFAULT_PRIORITY = "normal"       # normal, high, low
-DEFAULT_TAG = ""
-DEFAULT_TIMEOUT = 300             # seconds
-DEFAULT_INTERRUPTION_LEVEL = "active"  # iOS: passive, active, time-sensitive, critical
-DEFAULT_CATEGORY = ""
-DEFAULT_SOUND = "default"
-DEFAULT_VIBRATION = "default"
-DEFAULT_LED = True
+DEFAULT_TTL = None
+DEFAULT_STICKY = False
 
 # Services
+SERVICE_SIMPLE_NOTIFY = "simple_notify"
+SERVICE_ADVANCED_NOTIFY = "advanced_notify"
 SERVICE_ADD_GROUP = "add_group"
 SERVICE_REMOVE_GROUP = "remove_group"
 SERVICE_UPDATE_PERSON = "update_person"
