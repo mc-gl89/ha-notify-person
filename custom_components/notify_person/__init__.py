@@ -3,7 +3,7 @@
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
@@ -13,7 +13,6 @@ from .const import (
     ATTR_TITLE,
     ATTR_DATA,
     ATTR_PERSON,
-    ATTR_GROUP,
     CONF_CHANNEL,
     CONF_PRIORITY,
     CONF_CRITICAL,
@@ -48,119 +47,6 @@ ADVANCED_NOTIFY_SCHEMA = vol.Schema({
 })
 
 
-class NotifyPersonManager:
-    """Manages dynamic notify services for persons and groups."""
-    
-    def __init__(self, hass: HomeAssistant, entry_data: dict) -> None:
-        self.hass = hass
-        self.entry_data = entry_data
-        self._registered: set[str] = set()
-    
-    async def async_setup(self) -> None:
-        """Register notify services from config entry data."""
-        await self._register_persons()
-        await self._register_groups()
-    
-    def _get_persons(self) -> dict:
-        """Get all configured persons from entry data."""
-        return self.entry_data.get("persons", {})
-    
-    def _get_groups(self) -> dict:
-        """Get all notification groups from entry data."""
-        return self.entry_data.get("groups", {})
-    
-    async def _register_persons(self) -> None:
-        """Create notify.person_* services."""
-        persons = self._get_persons()
-        
-        for person_id, config in persons.items():
-            safe_name = person_id.replace("person.", "").replace("-", "_").replace(" ", "_").lower()
-            service_name = f"person_{safe_name}"
-            
-            async def _send(call: ServiceCall, person_id=person_id, config=config) -> None:
-                message = call.data[ATTR_MESSAGE]
-                title = call.data.get(ATTR_TITLE, "Home Assistant")
-                data = call.data.get(ATTR_DATA, {})
-                
-                targets = config.get("notify_targets", [])
-                if not targets:
-                    _LOGGER.warning("No targets for %s", config.get("name", person_id))
-                    return
-                
-                for target in targets:
-                    try:
-                        await self.hass.services.async_call(
-                            "notify",
-                            target.replace("notify.", ""),
-                            {"message": message, "title": title, "data": data},
-                        )
-                    except Exception as err:
-                        _LOGGER.error("Failed to notify %s: %s", target, err)
-            
-            self.hass.services.async_register("notify", service_name, _send, schema=vol.Schema({
-                vol.Required(ATTR_MESSAGE): cv.string,
-                vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-                vol.Optional(ATTR_DATA): dict,
-            }))
-            self._registered.add(f"notify.{service_name}")
-            _LOGGER.debug("Registered notify.%s", service_name)
-    
-    async def _register_groups(self) -> None:
-        """Create notify.group_* services."""
-        groups = self._get_groups()
-        persons = self._get_persons()
-        
-        for group_id, config in groups.items():
-            safe_name = group_id.replace("-", "_").replace(" ", "_").lower()
-            service_name = f"group_{safe_name}"
-            
-            async def _send(call: ServiceCall, group_config=config) -> None:
-                message = call.data[ATTR_MESSAGE]
-                title = call.data.get(ATTR_TITLE, "Home Assistant")
-                data = call.data.get(ATTR_DATA, {})
-                
-                member_names = group_config.get("persons", [])
-                if not member_names:
-                    return
-                
-                for member_name in member_names:
-                    for pid, pconfig in persons.items():
-                        if pconfig.get("name") == member_name or pid == member_name:
-                            safe = pid.replace("person.", "").replace("-", "_").replace(" ", "_").lower()
-                            try:
-                                await self.hass.services.async_call(
-                                    "notify", f"person_{safe}",
-                                    {"message": message, "title": title, "data": data},
-                                )
-                            except Exception as err:
-                                _LOGGER.error("Group notify failed for %s: %s", member_name, err)
-                            break
-            
-            self.hass.services.async_register("notify", service_name, _send, schema=vol.Schema({
-                vol.Required(ATTR_MESSAGE): cv.string,
-                vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-                vol.Optional(ATTR_DATA): dict,
-            }))
-            self._registered.add(f"notify.{service_name}")
-            _LOGGER.debug("Registered notify.%s", service_name)
-    
-    async def async_reload(self, entry_data: dict) -> None:
-        """Reload all services with updated data."""
-        for service in self._registered:
-            _, name = service.split(".", 1)
-            self.hass.services.async_remove("notify", name)
-        self._registered.clear()
-        self.entry_data = entry_data
-        await self.async_setup()
-    
-    async def async_cleanup(self) -> None:
-        """Remove all services."""
-        for service in self._registered:
-            _, name = service.split(".", 1)
-            self.hass.services.async_remove("notify", name)
-        self._registered.clear()
-
-
 def _resolve_targets(entry_data: dict, name: str) -> list[str]:
     """Resolve a person or group name to list of notify service names."""
     persons = entry_data.get("persons", {})
@@ -192,9 +78,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     entry_data = entry.data
     
-    manager = NotifyPersonManager(hass, entry_data)
-    await manager.async_setup()
-    
     # --- Register simple_notify service ---
     async def async_simple_notify(call: ServiceCall) -> None:
         """Handle simple notify service call."""
@@ -202,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         message = call.data[ATTR_MESSAGE]
         title = call.data.get(ATTR_TITLE, "Home Assistant")
         
-        targets = _resolve_targets(entry_data, person_name)
+        targets = _resolve_targets(entry.data, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -256,7 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         elif priority == "low":
             notify_data["priority"] = "low"
         
-        targets = _resolve_targets(entry_data, person_name)
+        targets = _resolve_targets(entry.data, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -275,11 +158,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_ADVANCED_NOTIFY, async_advanced_notify, schema=ADVANCED_NOTIFY_SCHEMA
     )
     
+    # Add listener for config entry updates (options flow changes)
+    @callback
+    def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Handle options update."""
+        _LOGGER.debug("Config entry updated, services reloaded")
+    
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    
     hass.data[DOMAIN][entry.entry_id] = {
-        "manager": manager,
+        "entry": entry,
     }
     
-    _LOGGER.info("Notify Person loaded (v0.2.0)")
+    _LOGGER.info("Notify Person loaded (v0.1.1)")
     return True
 
 
@@ -289,7 +180,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_remove(DOMAIN, SERVICE_SIMPLE_NOTIFY)
     hass.services.async_remove(DOMAIN, SERVICE_ADVANCED_NOTIFY)
     
-    entry_data = hass.data[DOMAIN].pop(entry.entry_id, None)
-    if entry_data and (manager := entry_data.get("manager")):
-        await manager.async_cleanup()
+    hass.data[DOMAIN].pop(entry.entry_id, None)
     return True

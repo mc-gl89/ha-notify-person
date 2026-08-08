@@ -122,16 +122,18 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create notification groups."""
         if user_input is not None:
             groups = {}
-            for group_name, members in user_input.get("groups", {}).items():
-                safe_id = group_name.lower().replace(" ", "_").replace("-", "_")
-                groups[safe_id] = {"name": group_name, "persons": members}
+            raw_groups = user_input.get("groups", {})
+            if isinstance(raw_groups, dict):
+                for group_name, members in raw_groups.items():
+                    if group_name and members:
+                        safe_id = group_name.lower().replace(" ", "_").replace("-", "_")
+                        groups[safe_id] = {"name": group_name, "persons": members}
             
             self._data["persons"] = self._persons_data
             self._data["groups"] = groups
             
             # Clean up temp data
             self._data.pop("selected_persons", None)
-            self._data.pop("_current_person_idx", None)
             
             return self.async_create_entry(
                 title="Notify Person",
@@ -171,41 +173,57 @@ class NotifyPersonOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage options -- show all persons with device assignment on one page."""
-        persons = self.config_entry.data.get("persons", {})
-        
-        if user_input is not None:
-            # Update notify_targets for each person in config entry data
-            updated_persons = {pid: dict(config) for pid, config in persons.items()}
-            for pid in updated_persons:
-                key = f"devices_{pid}"
-                if key in user_input:
-                    updated_persons[pid]["notify_targets"] = user_input[key]
+        try:
+            persons = self.config_entry.data.get("persons", {})
             
-            # Update the config entry data with new device assignments
-            new_data = dict(self.config_entry.data)
-            new_data["persons"] = updated_persons
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data=new_data,
+            if user_input is not None:
+                # Update notify_targets for each person in config entry data
+                updated_persons = {}
+                for pid, config in persons.items():
+                    updated_persons[pid] = dict(config) if config else {}
+                
+                for pid in list(updated_persons.keys()):
+                    key = f"devices_{pid}"
+                    if key in user_input:
+                        updated_persons[pid]["notify_targets"] = user_input[key]
+                
+                # Update the config entry data with new device assignments
+                new_data = dict(self.config_entry.data)
+                new_data["persons"] = updated_persons
+                
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=new_data,
+                )
+                return self.async_create_entry(title="", data={})
+            
+            # Build schema with all persons and their device options
+            notify_services = self.hass.services.async_services().get("notify", {})
+            device_options = {}
+            for svc in notify_services:
+                if svc.startswith("person_") or svc.startswith("group_"):
+                    continue
+                friendly = svc.replace("mobile_app_", "").replace("_", " ").title()
+                device_options[svc] = friendly
+            
+            schema_fields = {}
+            if persons:
+                for pid, config in persons.items():
+                    if not isinstance(config, dict):
+                        config = {}
+                    current_targets = config.get("notify_targets", [])
+                    if not isinstance(current_targets, list):
+                        current_targets = []
+                    name = config.get("name", pid.replace("person.", ""))
+                    schema_fields[vol.Optional(f"devices_{pid}", default=current_targets)] = cv.multi_select(device_options)
+            else:
+                _LOGGER.warning("No persons found in config entry data for options flow")
+            
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema(schema_fields),
+                description_placeholders={"count": str(len(persons))},
             )
-            return self.async_create_entry(title="", data={})
-        
-        # Build schema with all persons and their device options
-        notify_services = self.hass.services.async_services().get("notify", {})
-        device_options = {}
-        for svc in notify_services:
-            if svc.startswith("person_") or svc.startswith("group_"):
-                continue
-            friendly = svc.replace("mobile_app_", "").replace("_", " ").title()
-            device_options[svc] = friendly
-        
-        schema_fields = {}
-        for pid, config in persons.items():
-            current_targets = config.get("notify_targets", [])
-            schema_fields[vol.Optional(f"devices_{pid}", default=current_targets)] = cv.multi_select(device_options)
-        
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(schema_fields),
-            description_placeholders={"count": str(len(persons))},
-        )
+        except Exception as err:
+            _LOGGER.exception("Error in options flow: %s", err)
+            return self.async_abort(reason="unknown_error")

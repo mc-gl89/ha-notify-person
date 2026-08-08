@@ -9,7 +9,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import DOMAIN
-from .storage import NotifyPersonStorage
 
 _LOGGER = logging.getLogger(__name__)
 
