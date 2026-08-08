@@ -47,24 +47,32 @@ ADVANCED_NOTIFY_SCHEMA = vol.Schema({
 })
 
 
-def _resolve_targets(entry_data: dict, name: str) -> list[str]:
+def _resolve_targets(entry_data: dict, entry_options: dict, name: str) -> list[str]:
     """Resolve a person or group name to list of notify service names."""
     persons = entry_data.get("persons", {})
     groups = entry_data.get("groups", {})
+    
+    # Merge notify_targets from entry_options if present
+    merged_persons = {}
+    for pid, pconfig in persons.items():
+        merged_persons[pid] = dict(pconfig) if pconfig else {}
+        key = f"devices_{pid}"
+        if key in entry_options:
+            merged_persons[pid]["notify_targets"] = entry_options[key]
     
     # Check if it's a group
     for gid, gconfig in groups.items():
         if gconfig.get("name") == name or gid == name:
             targets = []
             for member_name in gconfig.get("persons", []):
-                for pid, pconfig in persons.items():
+                for pid, pconfig in merged_persons.items():
                     if pconfig.get("name") == member_name or pid == member_name:
                         targets.extend(pconfig.get("notify_targets", []))
                         break
             return targets
     
     # Check if it's a person
-    for pid, pconfig in persons.items():
+    for pid, pconfig in merged_persons.items():
         if pconfig.get("name") == name or pid == name:
             return pconfig.get("notify_targets", [])
     
@@ -77,6 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     
     entry_data = entry.data
+    entry_options = entry.options or {}
     
     # --- Register simple_notify service ---
     async def async_simple_notify(call: ServiceCall) -> None:
@@ -85,7 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         message = call.data[ATTR_MESSAGE]
         title = call.data.get(ATTR_TITLE, "Home Assistant")
         
-        targets = _resolve_targets(entry.data, person_name)
+        targets = _resolve_targets(entry.data, entry.options or {}, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -139,7 +148,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         elif priority == "low":
             notify_data["priority"] = "low"
         
-        targets = _resolve_targets(entry.data, person_name)
+        targets = _resolve_targets(entry.data, entry.options or {}, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -170,7 +179,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "entry": entry,
     }
     
-    _LOGGER.info("Notify Person loaded (v0.1.1)")
+    _LOGGER.info("Notify Person loaded (v0.1.3)")
     return True
 
 

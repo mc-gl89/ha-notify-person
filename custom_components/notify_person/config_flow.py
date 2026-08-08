@@ -177,25 +177,15 @@ class NotifyPersonOptionsFlow(config_entries.OptionsFlow):
             persons = self.config_entry.data.get("persons", {})
             
             if user_input is not None:
-                # Update notify_targets for each person in config entry data
-                updated_persons = {}
-                for pid, config in persons.items():
-                    updated_persons[pid] = dict(config) if config else {}
-                
-                for pid in list(updated_persons.keys()):
+                # Build options dict with device assignments
+                options = {}
+                for pid in persons:
                     key = f"devices_{pid}"
                     if key in user_input:
-                        updated_persons[pid]["notify_targets"] = user_input[key]
+                        options[key] = user_input[key]
                 
-                # Update the config entry data with new device assignments
-                new_data = dict(self.config_entry.data)
-                new_data["persons"] = updated_persons
-                
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    data=new_data,
-                )
-                return self.async_create_entry(title="", data={})
+                # Return options to be saved in entry.options
+                return self.async_create_entry(title="", data=options)
             
             # Build schema with all persons and their device options
             notify_services = self.hass.services.async_services().get("notify", {})
@@ -206,16 +196,28 @@ class NotifyPersonOptionsFlow(config_entries.OptionsFlow):
                 friendly = svc.replace("mobile_app_", "").replace("_", " ").title()
                 device_options[svc] = friendly
             
+            # Current saved options (may be empty on first run)
+            current_options = self.config_entry.options or {}
+            
             schema_fields = {}
             if persons:
                 for pid, config in persons.items():
                     if not isinstance(config, dict):
                         config = {}
+                    
+                    name = config.get("name", pid.replace("person.", ""))
+                    
+                    # Start with notify_targets from config data
                     current_targets = config.get("notify_targets", [])
                     if not isinstance(current_targets, list):
                         current_targets = []
-                    name = config.get("name", pid.replace("person.", ""))
-                    schema_fields[vol.Optional(f"devices_{pid}", default=current_targets)] = cv.multi_select(device_options)
+                    
+                    # Override with options if present
+                    key = f"devices_{pid}"
+                    if key in current_options:
+                        current_targets = current_options[key]
+                    
+                    schema_fields[vol.Optional(key, default=current_targets)] = cv.multi_select(device_options)
             else:
                 _LOGGER.warning("No persons found in config entry data for options flow")
             
