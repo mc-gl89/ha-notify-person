@@ -23,7 +23,6 @@ from .const import (
     SERVICE_SIMPLE_NOTIFY,
     SERVICE_ADVANCED_NOTIFY,
 )
-from .storage import NotifyPersonStorage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,19 +51,27 @@ ADVANCED_NOTIFY_SCHEMA = vol.Schema({
 class NotifyPersonManager:
     """Manages dynamic notify services for persons and groups."""
     
-    def __init__(self, hass: HomeAssistant, storage: NotifyPersonStorage) -> None:
+    def __init__(self, hass: HomeAssistant, entry_data: dict) -> None:
         self.hass = hass
-        self.storage = storage
+        self.entry_data = entry_data
         self._registered: set[str] = set()
     
     async def async_setup(self) -> None:
-        """Register notify services from storage."""
+        """Register notify services from config entry data."""
         await self._register_persons()
         await self._register_groups()
     
+    def _get_persons(self) -> dict:
+        """Get all configured persons from entry data."""
+        return self.entry_data.get("persons", {})
+    
+    def _get_groups(self) -> dict:
+        """Get all notification groups from entry data."""
+        return self.entry_data.get("groups", {})
+    
     async def _register_persons(self) -> None:
         """Create notify.person_* services."""
-        persons = self.storage.get_persons()
+        persons = self._get_persons()
         
         for person_id, config in persons.items():
             safe_name = person_id.replace("person.", "").replace("-", "_").replace(" ", "_").lower()
@@ -100,7 +107,8 @@ class NotifyPersonManager:
     
     async def _register_groups(self) -> None:
         """Create notify.group_* services."""
-        groups = self.storage.get_groups()
+        groups = self._get_groups()
+        persons = self._get_persons()
         
         for group_id, config in groups.items():
             safe_name = group_id.replace("-", "_").replace(" ", "_").lower()
@@ -114,8 +122,6 @@ class NotifyPersonManager:
                 member_names = group_config.get("persons", [])
                 if not member_names:
                     return
-                
-                persons = self.storage.get_persons()
                 
                 for member_name in member_names:
                     for pid, pconfig in persons.items():
@@ -138,12 +144,13 @@ class NotifyPersonManager:
             self._registered.add(f"notify.{service_name}")
             _LOGGER.debug("Registered notify.%s", service_name)
     
-    async def async_reload(self) -> None:
-        """Reload all services."""
+    async def async_reload(self, entry_data: dict) -> None:
+        """Reload all services with updated data."""
         for service in self._registered:
             _, name = service.split(".", 1)
             self.hass.services.async_remove("notify", name)
         self._registered.clear()
+        self.entry_data = entry_data
         await self.async_setup()
     
     async def async_cleanup(self) -> None:
@@ -154,10 +161,10 @@ class NotifyPersonManager:
         self._registered.clear()
 
 
-async def _resolve_targets(hass: HomeAssistant, storage: NotifyPersonStorage, name: str) -> list[str]:
+def _resolve_targets(entry_data: dict, name: str) -> list[str]:
     """Resolve a person or group name to list of notify service names."""
-    persons = storage.get_persons()
-    groups = storage.get_groups()
+    persons = entry_data.get("persons", {})
+    groups = entry_data.get("groups", {})
     
     # Check if it's a group
     for gid, gconfig in groups.items():
@@ -183,20 +190,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Notify Person from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     
-    storage = NotifyPersonStorage(hass)
-    await storage.async_load()
+    entry_data = entry.data
     
-    # Migrate config entry data to storage if needed
-    entry_data = entry.data or {}
-    if entry_data.get("persons") and not storage.get_persons():
-        for pid, config in entry_data["persons"].items():
-            storage.add_person(pid, config)
-        if entry_data.get("groups"):
-            for gid, config in entry_data["groups"].items():
-                storage.add_group(gid, config)
-        await storage.async_save()
-    
-    manager = NotifyPersonManager(hass, storage)
+    manager = NotifyPersonManager(hass, entry_data)
     await manager.async_setup()
     
     # --- Register simple_notify service ---
@@ -206,7 +202,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         message = call.data[ATTR_MESSAGE]
         title = call.data.get(ATTR_TITLE, "Home Assistant")
         
-        targets = await _resolve_targets(hass, storage, person_name)
+        targets = _resolve_targets(entry_data, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -260,7 +256,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         elif priority == "low":
             notify_data["priority"] = "low"
         
-        targets = await _resolve_targets(hass, storage, person_name)
+        targets = _resolve_targets(entry_data, person_name)
         if not targets:
             _LOGGER.warning("No targets found for person/group: %s", person_name)
             return
@@ -280,7 +276,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     
     hass.data[DOMAIN][entry.entry_id] = {
-        "storage": storage,
         "manager": manager,
     }
     

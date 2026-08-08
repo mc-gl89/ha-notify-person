@@ -171,23 +171,23 @@ class NotifyPersonOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage options -- show all persons with device assignment on one page."""
-        from .storage import NotifyPersonStorage
-        
-        storage = NotifyPersonStorage(self.hass)
-        await storage.async_load()
-        
-        persons = storage.get_persons()
+        persons = self.config_entry.data.get("persons", {})
         
         if user_input is not None:
-            # Process device assignments from the form
-            for pid in persons:
+            # Update notify_targets for each person in config entry data
+            updated_persons = {pid: dict(config) for pid, config in persons.items()}
+            for pid in updated_persons:
                 key = f"devices_{pid}"
                 if key in user_input:
-                    persons[pid]["notify_targets"] = user_input[key]
+                    updated_persons[pid]["notify_targets"] = user_input[key]
             
-            await storage.async_save()
-            
-            # Also update the config entry data
+            # Update the config entry data with new device assignments
+            new_data = dict(self.config_entry.data)
+            new_data["persons"] = updated_persons
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data=new_data,
+            )
             return self.async_create_entry(title="", data={})
         
         # Build schema with all persons and their device options
