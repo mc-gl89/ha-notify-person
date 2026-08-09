@@ -85,7 +85,13 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         selected = self._data.get("selected_persons", [])
         
         if self._current_person_idx >= len(selected):
-            return await self.async_step_groups()
+            # All persons configured -- skip groups step for now and create entry
+            self._data["persons"] = self._persons_data
+            self._data.pop("selected_persons", None)
+            return self.async_create_entry(
+                title="Notify Person",
+                data=self._data,
+            )
 
         current_pid = selected[self._current_person_idx]
         current_person = self._persons_data[current_pid]
