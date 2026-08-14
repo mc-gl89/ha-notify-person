@@ -65,8 +65,19 @@ def _build_advanced_schema(person_names: list[str]):
     schema_dict[vol.Optional(CONF_TAG)] = cv.string
     schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
     schema_dict[vol.Optional(CONF_COLOR)] = cv.string
-    # Actions: UI-friendly list from services.yaml, loose validation in Python schema
+    # Actions: UI-friendly list from services.yaml
     schema_dict[vol.Optional("actions")] = vol.Any(list, dict, cv.string)
+    # Legacy button slots (backward compat — not shown in UI)
+    schema_dict[vol.Optional("action_1_id")] = cv.string
+    schema_dict[vol.Optional("action_1_title")] = cv.string
+    schema_dict[vol.Optional("action_2_id")] = cv.string
+    schema_dict[vol.Optional("action_2_title")] = cv.string
+    schema_dict[vol.Optional("action_3_id")] = cv.string
+    schema_dict[vol.Optional("action_3_title")] = cv.string
+    schema_dict[vol.Optional("action_4_id")] = cv.string
+    schema_dict[vol.Optional("action_4_title")] = cv.string
+    schema_dict[vol.Optional("action_5_id")] = cv.string
+    schema_dict[vol.Optional("action_5_title")] = cv.string
     schema_dict[vol.Optional(ATTR_DATA)] = dict
     return vol.Schema(schema_dict)
 
@@ -124,6 +135,16 @@ def _build_notify_data(call: ServiceCall) -> dict:
                     actions.append({"action": action_id, "title": action_title})
         if actions:
             notify_data["actions"] = actions
+    
+    # Legacy button slots (backward compat)
+    legacy_actions = []
+    for i in range(1, 6):
+        action_id = call.data.get(f"action_{i}_id")
+        action_title = call.data.get(f"action_{i}_title")
+        if action_id and action_title:
+            legacy_actions.append({"action": action_id, "title": action_title})
+    if legacy_actions:
+        notify_data["actions"] = legacy_actions
     
     if call.data.get(CONF_PERSISTENT):
         notify_data["persistent"] = True
