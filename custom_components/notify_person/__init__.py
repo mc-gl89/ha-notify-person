@@ -17,6 +17,7 @@ from .const import (
     CONF_PRIORITY,
     CONF_CRITICAL,
     CONF_TAG,
+    CONF_ACTIONS,
     CONF_PERSISTENT,
     CONF_ACTION_1_ID,
     CONF_ACTION_1_TITLE,
@@ -75,6 +76,8 @@ def _build_advanced_schema(person_names: list[str]):
     schema_dict[vol.Optional(CONF_CRITICAL, default=False)] = cv.boolean
     schema_dict[vol.Optional(CONF_TAG)] = cv.string
     schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
+    # Legacy actions field (backward compat, prefer button slots below)
+    schema_dict[vol.Optional(CONF_ACTIONS)] = list
     # UI-friendly action buttons: up to 5 individual button slots
     schema_dict[vol.Optional(CONF_ACTION_1_ID)] = cv.string
     schema_dict[vol.Optional(CONF_ACTION_1_TITLE)] = cv.string
@@ -129,7 +132,7 @@ def _build_notify_data(call: ServiceCall) -> dict:
     if call.data.get(CONF_TAG):
         notify_data["tag"] = call.data[CONF_TAG]
     
-    # Build actions array from individual UI button slots
+    # Build actions array from individual UI button slots (preferred)
     actions = []
     action_pairs = [
         (CONF_ACTION_1_ID, CONF_ACTION_1_TITLE),
@@ -145,6 +148,9 @@ def _build_notify_data(call: ServiceCall) -> dict:
             actions.append({"action": action_id, "title": action_title})
     if actions:
         notify_data["actions"] = actions
+    elif call.data.get(CONF_ACTIONS):
+        # Legacy: raw actions array from YAML
+        notify_data["actions"] = call.data[CONF_ACTIONS]
     
     if call.data.get(CONF_PERSISTENT):
         notify_data["persistent"] = True
