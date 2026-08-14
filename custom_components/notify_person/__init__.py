@@ -45,10 +45,10 @@ def _get_all_person_names(hass: HomeAssistant) -> list[str]:
 
 
 def _build_simple_schema(person_names: list[str]):
-    """Build simple_notify schema with person dropdown."""
+    """Build simple_notify schema with multi-select person dropdown."""
     schema_dict = {}
     if person_names:
-        schema_dict[vol.Required(ATTR_PERSON)] = vol.In(person_names)
+        schema_dict[vol.Required(ATTR_PERSON)] = cv.multi_select(person_names)
     else:
         schema_dict[vol.Required(ATTR_PERSON)] = cv.string
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
@@ -57,10 +57,10 @@ def _build_simple_schema(person_names: list[str]):
 
 
 def _build_advanced_schema(person_names: list[str]):
-    """Build advanced_notify schema with person dropdown."""
+    """Build advanced_notify schema with multi-select person dropdown."""
     schema_dict = {}
     if person_names:
-        schema_dict[vol.Required(ATTR_PERSON)] = vol.In(person_names)
+        schema_dict[vol.Required(ATTR_PERSON)] = cv.multi_select(person_names)
     else:
         schema_dict[vol.Required(ATTR_PERSON)] = cv.string
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
@@ -164,26 +164,32 @@ async def _register_services(hass: HomeAssistant) -> None:
     
     # Simple notify handler
     async def async_simple_notify(call: ServiceCall) -> None:
-        person_name = call.data[ATTR_PERSON]
+        selected_persons = call.data[ATTR_PERSON]
+        # Handle single string (legacy / empty list fallback)
+        if isinstance(selected_persons, str):
+            selected_persons = [selected_persons]
         message = call.data[ATTR_MESSAGE]
         title = call.data.get(ATTR_TITLE, "Home Assistant")
         
-        targets = []
-        for key, edata in hass.data[DOMAIN].items():
-            if key == "services_registered":
-                continue
-            entry = edata.get("entry") if isinstance(edata, dict) else None
-            if entry and hasattr(entry, "data"):
-                t = _resolve_targets(entry.data, entry.options or {}, person_name)
-                if t:
-                    targets = t
-                    break
+        all_targets = []
+        for person_name in selected_persons:
+            for key, edata in hass.data[DOMAIN].items():
+                if key == "services_registered":
+                    continue
+                entry = edata.get("entry") if isinstance(edata, dict) else None
+                if entry and hasattr(entry, "data"):
+                    t = _resolve_targets(entry.data, entry.options or {}, person_name)
+                    if t:
+                        all_targets.extend(t)
         
-        if not targets:
-            _LOGGER.warning("No targets found for person/group: %s", person_name)
+        # Deduplicate targets
+        unique_targets = list(dict.fromkeys(all_targets))
+        
+        if not unique_targets:
+            _LOGGER.warning("No targets found for persons: %s", selected_persons)
             return
         
-        await _send_notification(hass, targets, message, title)
+        await _send_notification(hass, unique_targets, message, title)
     
     hass.services.async_register(
         DOMAIN, SERVICE_SIMPLE_NOTIFY, async_simple_notify,
@@ -192,27 +198,31 @@ async def _register_services(hass: HomeAssistant) -> None:
     
     # Advanced notify handler
     async def async_advanced_notify(call: ServiceCall) -> None:
-        person_name = call.data[ATTR_PERSON]
+        selected_persons = call.data[ATTR_PERSON]
+        if isinstance(selected_persons, str):
+            selected_persons = [selected_persons]
         message = call.data[ATTR_MESSAGE]
         title = call.data.get(ATTR_TITLE, "Home Assistant")
         notify_data = _build_notify_data(call)
         
-        targets = []
-        for key, edata in hass.data[DOMAIN].items():
-            if key == "services_registered":
-                continue
-            entry = edata.get("entry") if isinstance(edata, dict) else None
-            if entry and hasattr(entry, "data"):
-                t = _resolve_targets(entry.data, entry.options or {}, person_name)
-                if t:
-                    targets = t
-                    break
+        all_targets = []
+        for person_name in selected_persons:
+            for key, edata in hass.data[DOMAIN].items():
+                if key == "services_registered":
+                    continue
+                entry = edata.get("entry") if isinstance(edata, dict) else None
+                if entry and hasattr(entry, "data"):
+                    t = _resolve_targets(entry.data, entry.options or {}, person_name)
+                    if t:
+                        all_targets.extend(t)
         
-        if not targets:
-            _LOGGER.warning("No targets found for person/group: %s", person_name)
+        unique_targets = list(dict.fromkeys(all_targets))
+        
+        if not unique_targets:
+            _LOGGER.warning("No targets found for persons: %s", selected_persons)
             return
         
-        await _send_notification(hass, targets, message, title, notify_data)
+        await _send_notification(hass, unique_targets, message, title, notify_data)
     
     hass.services.async_register(
         DOMAIN, SERVICE_ADVANCED_NOTIFY, async_advanced_notify,

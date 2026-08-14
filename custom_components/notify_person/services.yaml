@@ -1,13 +1,15 @@
 simple_notify:
   name: Simple Notify
-  description: Sende eine einfache Benachrichtigung an eine Person oder Gruppe.
+  description: Sende eine einfache Benachrichtigung an eine oder mehrere Personen oder Gruppen.
   fields:
     person:
-      name: Person / Gruppe
-      description: Name der Person oder Gruppe aus der Notify Person Konfiguration.
+      name: Personen / Gruppen
+      description: Eine oder mehrere Personen oder Gruppen aus der Notify Person Konfiguration.
       required: true
       selector:
-        text:
+        select:
+          multiple: true
+          options: []
     message:
       name: Nachricht
       description: Inhalt der Benachrichtigung.
@@ -25,14 +27,16 @@ simple_notify:
 
 advanced_notify:
   name: Advanced Notify
-  description: Erweiterte Benachrichtigung mit allen Optionen (Kanal, Priorität, Aktionen, etc.).
+  description: Erweiterte Benachrichtigung mit allen Optionen (Kanal, Priorität, Aktionen, etc.) an eine oder mehrere Personen.
   fields:
     person:
-      name: Person / Gruppe
-      description: Name der Person oder Gruppe aus der Notify Person Konfiguration.
+      name: Personen / Gruppen
+      description: Eine oder mehrere Personen oder Gruppen aus der Notify Person Konfiguration.
       required: true
       selector:
-        text:
+        select:
+          multiple: true
+          options: []
     message:
       name: Nachricht
       description: Inhalt der Benachrichtigung.
