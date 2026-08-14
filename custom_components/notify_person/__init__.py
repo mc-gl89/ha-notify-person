@@ -65,14 +65,8 @@ def _build_advanced_schema(person_names: list[str]):
     schema_dict[vol.Optional(CONF_TAG)] = cv.string
     schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
     schema_dict[vol.Optional(CONF_COLOR)] = cv.string
-    # Actions as list of objects (UI-friendly with "Add entry")
-    schema_dict[vol.Optional("actions")] = vol.All(
-        cv.ensure_list,
-        [vol.Schema({
-            vol.Required("action"): cv.string,
-            vol.Required("title"): cv.string,
-        })]
-    )
+    # Actions: UI-friendly list from services.yaml, loose validation in Python schema
+    schema_dict[vol.Optional("actions")] = vol.Any(list, dict, cv.string)
     schema_dict[vol.Optional(ATTR_DATA)] = dict
     return vol.Schema(schema_dict)
 
