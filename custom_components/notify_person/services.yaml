@@ -19,11 +19,29 @@ simple_notify:
           multiline: true
     title:
       name: Titel
-      description: Titel der Benachrichtigung.
+      description: Titel der Benachrichtigung (optional).
       required: false
-      default: "Home Assistant"
+      default: ""
       selector:
         text:
+    actions:
+      name: Buttons
+      description: Interaktive Buttons für die Benachrichtigung.
+      required: false
+      selector:
+        list:
+          type: object
+          object:
+            action:
+              name: Button ID
+              description: Action ID (z.B. 'open_door')
+              selector:
+                text:
+            title:
+              name: Button Titel
+              description: Angezeigter Text (z.B. 'Tür öffnen')
+              selector:
+                text:
 
 advanced_notify:
   name: Advanced Notify
@@ -46,9 +64,9 @@ advanced_notify:
           multiline: true
     title:
       name: Titel
-      description: Titel der Benachrichtigung.
+      description: Titel der Benachrichtigung (optional).
       required: false
-      default: "Home Assistant"
+      default: ""
       selector:
         text:
     channel:
@@ -90,72 +108,40 @@ advanced_notify:
       default: false
       selector:
         boolean:
+    color:
+      name: Farbe
+      description: LED-Farbe der Benachrichtigung (nur Android).
+      required: false
+      selector:
+        select:
+          options:
+            - "red"
+            - "orange"
+            - "yellow"
+            - "green"
+            - "blue"
+            - "indigo"
+            - "violet"
+            - "white"
+            - "black"
     actions:
-      name: Aktionen (YAML)
-      description: Interaktive Buttons als YAML-Liste (legacy). Nutze stattdessen die Button-Felder unten für die UI.
+      name: Buttons
+      description: Interaktive Buttons für die Benachrichtigung.
       required: false
       selector:
-        object:
-    action_1_id:
-      name: Button 1 ID
-      description: Action ID für Button 1 (z.B. 'open_door').
-      required: false
-      selector:
-        text:
-    action_1_title:
-      name: Button 1 Titel
-      description: Angezeigter Text für Button 1 (z.B. 'Tür öffnen').
-      required: false
-      selector:
-        text:
-    action_2_id:
-      name: Button 2 ID
-      description: Action ID für Button 2.
-      required: false
-      selector:
-        text:
-    action_2_title:
-      name: Button 2 Titel
-      description: Angezeigter Text für Button 2.
-      required: false
-      selector:
-        text:
-    action_3_id:
-      name: Button 3 ID
-      description: Action ID für Button 3.
-      required: false
-      selector:
-        text:
-    action_3_title:
-      name: Button 3 Titel
-      description: Angezeigter Text für Button 3.
-      required: false
-      selector:
-        text:
-    action_4_id:
-      name: Button 4 ID
-      description: Action ID für Button 4.
-      required: false
-      selector:
-        text:
-    action_4_title:
-      name: Button 4 Titel
-      description: Angezeigter Text für Button 4.
-      required: false
-      selector:
-        text:
-    action_5_id:
-      name: Button 5 ID
-      description: Action ID für Button 5.
-      required: false
-      selector:
-        text:
-    action_5_title:
-      name: Button 5 Titel
-      description: Angezeigter Text für Button 5.
-      required: false
-      selector:
-        text:
+        list:
+          type: object
+          object:
+            action:
+              name: Button ID
+              description: Action ID (z.B. 'open_door')
+              selector:
+                text:
+            title:
+              name: Button Titel
+              description: Angezeigter Text (z.B. 'Tür öffnen')
+              selector:
+                text:
     data:
       name: Zusätzliche Daten
       description: Beliebige zusätzliche Daten für die mobile App.

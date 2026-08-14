@@ -17,18 +17,8 @@ from .const import (
     CONF_PRIORITY,
     CONF_CRITICAL,
     CONF_TAG,
-    CONF_ACTIONS,
     CONF_PERSISTENT,
-    CONF_ACTION_1_ID,
-    CONF_ACTION_1_TITLE,
-    CONF_ACTION_2_ID,
-    CONF_ACTION_2_TITLE,
-    CONF_ACTION_3_ID,
-    CONF_ACTION_3_TITLE,
-    CONF_ACTION_4_ID,
-    CONF_ACTION_4_TITLE,
-    CONF_ACTION_5_ID,
-    CONF_ACTION_5_TITLE,
+    CONF_COLOR,
     SERVICE_SIMPLE_NOTIFY,
     SERVICE_ADVANCED_NOTIFY,
 )
@@ -56,12 +46,10 @@ def _get_all_person_names(hass: HomeAssistant) -> list[str]:
 
 def _build_simple_schema(person_names: list[str]):
     """Build simple_notify schema — accepts entity IDs or names."""
-    # Entity-IDs are strings, so we accept string or list of strings
-    # No validation against person_names — resolver handles unknown persons
     schema_dict = {}
     schema_dict[vol.Required(ATTR_PERSON)] = vol.Any(cv.string, [cv.string])
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
-    schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
+    schema_dict[vol.Optional(ATTR_TITLE, default="")] = cv.string
     return vol.Schema(schema_dict)
 
 
@@ -70,25 +58,20 @@ def _build_advanced_schema(person_names: list[str]):
     schema_dict = {}
     schema_dict[vol.Required(ATTR_PERSON)] = vol.Any(cv.string, [cv.string])
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
-    schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
+    schema_dict[vol.Optional(ATTR_TITLE, default="")] = cv.string
     schema_dict[vol.Optional(CONF_CHANNEL)] = cv.string
     schema_dict[vol.Optional(CONF_PRIORITY, default="normal")] = vol.In(["normal", "high", "low"])
     schema_dict[vol.Optional(CONF_CRITICAL, default=False)] = cv.boolean
     schema_dict[vol.Optional(CONF_TAG)] = cv.string
     schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
-    # Legacy actions field (backward compat, prefer button slots below)
-    schema_dict[vol.Optional(CONF_ACTIONS)] = list
-    # UI-friendly action buttons: up to 5 individual button slots
-    schema_dict[vol.Optional(CONF_ACTION_1_ID)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_1_TITLE)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_2_ID)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_2_TITLE)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_3_ID)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_3_TITLE)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_4_ID)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_4_TITLE)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_5_ID)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTION_5_TITLE)] = cv.string
+    schema_dict[vol.Optional(CONF_COLOR)] = cv.string
+    # Actions as list of objects (UI-friendly with "Add entry")
+    schema_dict[vol.Optional("actions")] = [
+        {
+            vol.Required("action"): cv.string,
+            vol.Required("title"): cv.string,
+        }
+    ]
     schema_dict[vol.Optional(ATTR_DATA)] = dict
     return vol.Schema(schema_dict)
 
@@ -131,26 +114,21 @@ def _build_notify_data(call: ServiceCall) -> dict:
         notify_data["channel"] = call.data[CONF_CHANNEL]
     if call.data.get(CONF_TAG):
         notify_data["tag"] = call.data[CONF_TAG]
+    if call.data.get(CONF_COLOR):
+        notify_data["color"] = call.data[CONF_COLOR]
     
-    # Build actions array from individual UI button slots (preferred)
-    actions = []
-    action_pairs = [
-        (CONF_ACTION_1_ID, CONF_ACTION_1_TITLE),
-        (CONF_ACTION_2_ID, CONF_ACTION_2_TITLE),
-        (CONF_ACTION_3_ID, CONF_ACTION_3_TITLE),
-        (CONF_ACTION_4_ID, CONF_ACTION_4_TITLE),
-        (CONF_ACTION_5_ID, CONF_ACTION_5_TITLE),
-    ]
-    for id_key, title_key in action_pairs:
-        action_id = call.data.get(id_key)
-        action_title = call.data.get(title_key)
-        if action_id and action_title:
-            actions.append({"action": action_id, "title": action_title})
-    if actions:
-        notify_data["actions"] = actions
-    elif call.data.get(CONF_ACTIONS):
-        # Legacy: raw actions array from YAML
-        notify_data["actions"] = call.data[CONF_ACTIONS]
+    # Build actions array from list of objects (UI-friendly)
+    actions_list = call.data.get("actions", [])
+    if actions_list and isinstance(actions_list, list):
+        actions = []
+        for action_item in actions_list:
+            if isinstance(action_item, dict):
+                action_id = action_item.get("action")
+                action_title = action_item.get("title")
+                if action_id and action_title:
+                    actions.append({"action": action_id, "title": action_title})
+        if actions:
+            notify_data["actions"] = actions
     
     if call.data.get(CONF_PERSISTENT):
         notify_data["persistent"] = True
@@ -206,7 +184,7 @@ async def _register_services(hass: HomeAssistant) -> None:
         if isinstance(selected_persons, str):
             selected_persons = [selected_persons]
         message = call.data[ATTR_MESSAGE]
-        title = call.data.get(ATTR_TITLE, "Home Assistant")
+        title = call.data.get(ATTR_TITLE, "")
         
         all_targets = []
         for person_name in selected_persons:
@@ -228,18 +206,14 @@ async def _register_services(hass: HomeAssistant) -> None:
         
         await _send_notification(hass, unique_targets, message, title)
     
-    hass.services.async_register(
-        DOMAIN, SERVICE_SIMPLE_NOTIFY, async_simple_notify,
-        schema=_build_simple_schema(person_names)
-    )
-    
     # Advanced notify handler
     async def async_advanced_notify(call: ServiceCall) -> None:
         selected_persons = call.data[ATTR_PERSON]
+        # Handle single string (legacy / empty list fallback)
         if isinstance(selected_persons, str):
             selected_persons = [selected_persons]
         message = call.data[ATTR_MESSAGE]
-        title = call.data.get(ATTR_TITLE, "Home Assistant")
+        title = call.data.get(ATTR_TITLE, "")
         notify_data = _build_notify_data(call)
         
         all_targets = []
@@ -253,6 +227,7 @@ async def _register_services(hass: HomeAssistant) -> None:
                     if t:
                         all_targets.extend(t)
         
+        # Deduplicate targets
         unique_targets = list(dict.fromkeys(all_targets))
         
         if not unique_targets:
@@ -261,55 +236,51 @@ async def _register_services(hass: HomeAssistant) -> None:
         
         await _send_notification(hass, unique_targets, message, title, notify_data)
     
+    # Register with current person list for schema
     hass.services.async_register(
-        DOMAIN, SERVICE_ADVANCED_NOTIFY, async_advanced_notify,
-        schema=_build_advanced_schema(person_names)
+        DOMAIN,
+        SERVICE_SIMPLE_NOTIFY,
+        async_simple_notify,
+        schema=_build_simple_schema(person_names),
     )
-    
-    hass.data[DOMAIN]["services_registered"] = True
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADVANCED_NOTIFY,
+        async_advanced_notify,
+        schema=_build_advanced_schema(person_names),
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Notify Person from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
+    """Set up notify_person from a config entry."""
+    _LOGGER.debug("Setting up notify_person entry: %s", entry.title)
     
-    # Store entry
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+    
     hass.data[DOMAIN][entry.entry_id] = {
         "entry": entry,
+        "data": entry.data,
+        "options": entry.options,
     }
     
-    # Register (or re-register) services with updated person list
+    # Register services with current person list
     await _register_services(hass)
     
-    # Add listener for config entry updates (options flow changes)
-    @callback
-    def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Handle options update."""
-        _LOGGER.debug("Config entry updated, re-registering services")
-        hass.async_create_task(_register_services(hass))
+    # Mark services as registered
+    hass.data[DOMAIN]["services_registered"] = True
     
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-    
-    _LOGGER.info("Notify Person loaded (v0.1.16)")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    hass.data[DOMAIN].pop(entry.entry_id, None)
+    _LOGGER.debug("Unloading notify_person entry: %s", entry.title)
     
-    # Check if any entries remain
-    remaining = [k for k in hass.data.get(DOMAIN, {}).keys() if k not in ("services_registered",)]
+    if entry.entry_id in hass.data.get(DOMAIN, {}):
+        hass.data[DOMAIN].pop(entry.entry_id)
     
-    if not remaining:
-        # Remove services
-        if hass.services.has_service(DOMAIN, SERVICE_SIMPLE_NOTIFY):
-            hass.services.async_remove(DOMAIN, SERVICE_SIMPLE_NOTIFY)
-        if hass.services.has_service(DOMAIN, SERVICE_ADVANCED_NOTIFY):
-            hass.services.async_remove(DOMAIN, SERVICE_ADVANCED_NOTIFY)
-        hass.data.pop(DOMAIN, None)
-    else:
-        # Re-register with remaining persons
-        hass.async_create_task(_register_services(hass))
+    # Re-register services with remaining persons
+    await _register_services(hass)
     
     return True
