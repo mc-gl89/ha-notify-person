@@ -1,15 +1,15 @@
 simple_notify:
   name: Simple Notify
-  description: Sende eine einfache Benachrichtigung an eine oder mehrere Personen oder Gruppen.
+  description: Sende eine einfache Benachrichtigung an eine oder mehrere Personen. Nur konfigurierte Personen erhalten Benachrichtigungen.
   fields:
     person:
-      name: Personen / Gruppen
-      description: Eine oder mehrere Personen oder Gruppen aus der Notify Person Konfiguration.
+      name: Personen
+      description: Eine oder mehrere Home Assistant Personen (nur konfigurierte erhalten Benachrichtigungen).
       required: true
       selector:
-        select:
+        entity:
+          domain: person
           multiple: true
-          options: []
     message:
       name: Nachricht
       description: Inhalt der Benachrichtigung.
@@ -27,16 +27,16 @@ simple_notify:
 
 advanced_notify:
   name: Advanced Notify
-  description: Erweiterte Benachrichtigung mit allen Optionen (Kanal, Priorität, Aktionen, etc.) an eine oder mehrere Personen.
+  description: Erweiterte Benachrichtigung mit allen Optionen. Nur konfigurierte Personen erhalten Benachrichtigungen.
   fields:
     person:
-      name: Personen / Gruppen
-      description: Eine oder mehrere Personen oder Gruppen aus der Notify Person Konfiguration.
+      name: Personen
+      description: Eine oder mehrere Home Assistant Personen (nur konfigurierte erhalten Benachrichtigungen).
       required: true
       selector:
-        select:
+        entity:
+          domain: person
           multiple: true
-          options: []
     message:
       name: Nachricht
       description: Inhalt der Benachrichtigung.
