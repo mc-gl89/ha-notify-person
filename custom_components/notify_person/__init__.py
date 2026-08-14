@@ -45,24 +45,20 @@ def _get_all_person_names(hass: HomeAssistant) -> list[str]:
 
 
 def _build_simple_schema(person_names: list[str]):
-    """Build simple_notify schema with multi-select person dropdown."""
+    """Build simple_notify schema — accepts entity IDs or names."""
+    # Entity-IDs are strings, so we accept string or list of strings
+    # No validation against person_names — resolver handles unknown persons
     schema_dict = {}
-    if person_names:
-        schema_dict[vol.Required(ATTR_PERSON)] = cv.multi_select(person_names)
-    else:
-        schema_dict[vol.Required(ATTR_PERSON)] = cv.string
+    schema_dict[vol.Required(ATTR_PERSON)] = vol.Any(cv.string, [cv.string])
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
     schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
     return vol.Schema(schema_dict)
 
 
 def _build_advanced_schema(person_names: list[str]):
-    """Build advanced_notify schema with multi-select person dropdown."""
+    """Build advanced_notify schema — accepts entity IDs or names."""
     schema_dict = {}
-    if person_names:
-        schema_dict[vol.Required(ATTR_PERSON)] = cv.multi_select(person_names)
-    else:
-        schema_dict[vol.Required(ATTR_PERSON)] = cv.string
+    schema_dict[vol.Required(ATTR_PERSON)] = vol.Any(cv.string, [cv.string])
     schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
     schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
     schema_dict[vol.Optional(CONF_CHANNEL)] = cv.string
