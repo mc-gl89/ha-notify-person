@@ -91,11 +91,71 @@ advanced_notify:
       selector:
         boolean:
     actions:
-      name: Aktionen
-      description: Interaktive Buttons (Action ID und Title pro Button).
+      name: Aktionen (YAML)
+      description: Interaktive Buttons als YAML-Liste (legacy). Nutze stattdessen die Button-Felder unten für die UI.
       required: false
       selector:
         object:
+    action_1_id:
+      name: Button 1 ID
+      description: Action ID für Button 1 (z.B. 'open_door').
+      required: false
+      selector:
+        text:
+    action_1_title:
+      name: Button 1 Titel
+      description: Angezeigter Text für Button 1 (z.B. 'Tür öffnen').
+      required: false
+      selector:
+        text:
+    action_2_id:
+      name: Button 2 ID
+      description: Action ID für Button 2.
+      required: false
+      selector:
+        text:
+    action_2_title:
+      name: Button 2 Titel
+      description: Angezeigter Text für Button 2.
+      required: false
+      selector:
+        text:
+    action_3_id:
+      name: Button 3 ID
+      description: Action ID für Button 3.
+      required: false
+      selector:
+        text:
+    action_3_title:
+      name: Button 3 Titel
+      description: Angezeigter Text für Button 3.
+      required: false
+      selector:
+        text:
+    action_4_id:
+      name: Button 4 ID
+      description: Action ID für Button 4.
+      required: false
+      selector:
+        text:
+    action_4_title:
+      name: Button 4 Titel
+      description: Angezeigter Text für Button 4.
+      required: false
+      selector:
+        text:
+    action_5_id:
+      name: Button 5 ID
+      description: Action ID für Button 5.
+      required: false
+      selector:
+        text:
+    action_5_title:
+      name: Button 5 Titel
+      description: Angezeigter Text für Button 5.
+      required: false
+      selector:
+        text:
     data:
       name: Zusätzliche Daten
       description: Beliebige zusätzliche Daten für die mobile App.

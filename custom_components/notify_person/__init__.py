@@ -17,8 +17,17 @@ from .const import (
     CONF_PRIORITY,
     CONF_CRITICAL,
     CONF_TAG,
-    CONF_ACTIONS,
     CONF_PERSISTENT,
+    CONF_ACTION_1_ID,
+    CONF_ACTION_1_TITLE,
+    CONF_ACTION_2_ID,
+    CONF_ACTION_2_TITLE,
+    CONF_ACTION_3_ID,
+    CONF_ACTION_3_TITLE,
+    CONF_ACTION_4_ID,
+    CONF_ACTION_4_TITLE,
+    CONF_ACTION_5_ID,
+    CONF_ACTION_5_TITLE,
     SERVICE_SIMPLE_NOTIFY,
     SERVICE_ADVANCED_NOTIFY,
 )
@@ -65,8 +74,18 @@ def _build_advanced_schema(person_names: list[str]):
     schema_dict[vol.Optional(CONF_PRIORITY, default="normal")] = vol.In(["normal", "high", "low"])
     schema_dict[vol.Optional(CONF_CRITICAL, default=False)] = cv.boolean
     schema_dict[vol.Optional(CONF_TAG)] = cv.string
-    schema_dict[vol.Optional(CONF_ACTIONS)] = list
     schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
+    # UI-friendly action buttons: up to 5 individual button slots
+    schema_dict[vol.Optional(CONF_ACTION_1_ID)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_1_TITLE)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_2_ID)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_2_TITLE)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_3_ID)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_3_TITLE)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_4_ID)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_4_TITLE)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_5_ID)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTION_5_TITLE)] = cv.string
     schema_dict[vol.Optional(ATTR_DATA)] = dict
     return vol.Schema(schema_dict)
 
@@ -109,8 +128,24 @@ def _build_notify_data(call: ServiceCall) -> dict:
         notify_data["channel"] = call.data[CONF_CHANNEL]
     if call.data.get(CONF_TAG):
         notify_data["tag"] = call.data[CONF_TAG]
-    if call.data.get(CONF_ACTIONS):
-        notify_data["actions"] = call.data[CONF_ACTIONS]
+    
+    # Build actions array from individual UI button slots
+    actions = []
+    action_pairs = [
+        (CONF_ACTION_1_ID, CONF_ACTION_1_TITLE),
+        (CONF_ACTION_2_ID, CONF_ACTION_2_TITLE),
+        (CONF_ACTION_3_ID, CONF_ACTION_3_TITLE),
+        (CONF_ACTION_4_ID, CONF_ACTION_4_TITLE),
+        (CONF_ACTION_5_ID, CONF_ACTION_5_TITLE),
+    ]
+    for id_key, title_key in action_pairs:
+        action_id = call.data.get(id_key)
+        action_title = call.data.get(title_key)
+        if action_id and action_title:
+            actions.append({"action": action_id, "title": action_title})
+    if actions:
+        notify_data["actions"] = actions
+    
     if call.data.get(CONF_PERSISTENT):
         notify_data["persistent"] = True
     
