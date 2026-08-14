@@ -1,7 +1,6 @@
 """The Notify Person integration."""
 
 import logging
-import re
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
@@ -26,44 +25,54 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Schema for simple_notify (generic - person required)
-SIMPLE_NOTIFY_SCHEMA = vol.Schema({
-    vol.Required(ATTR_PERSON): cv.string,
-    vol.Required(ATTR_MESSAGE): cv.string,
-    vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-})
 
-# Schema for advanced_notify (generic - person required)
-ADVANCED_NOTIFY_SCHEMA = vol.Schema({
-    vol.Required(ATTR_PERSON): cv.string,
-    vol.Required(ATTR_MESSAGE): cv.string,
-    vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-    vol.Optional(CONF_CHANNEL): cv.string,
-    vol.Optional(CONF_PRIORITY, default="normal"): vol.In(["normal", "high", "low"]),
-    vol.Optional(CONF_CRITICAL, default=False): cv.boolean,
-    vol.Optional(CONF_TAG): cv.string,
-    vol.Optional(CONF_ACTIONS): list,
-    vol.Optional(CONF_PERSISTENT, default=False): cv.boolean,
-    vol.Optional(ATTR_DATA): dict,
-})
+def _get_all_person_names(hass: HomeAssistant) -> list[str]:
+    """Collect all person names from all notify_person config entries."""
+    names = []
+    domain_data = hass.data.get(DOMAIN, {})
+    for key, edata in domain_data.items():
+        if key == "services_registered":
+            continue
+        entry = edata.get("entry") if isinstance(edata, dict) else None
+        if entry and hasattr(entry, "data"):
+            persons = entry.data.get("persons", {})
+            for pid, pconfig in persons.items():
+                if isinstance(pconfig, dict):
+                    name = pconfig.get("name", pid.replace("person.", ""))
+                    if name and name not in names:
+                        names.append(name)
+    return sorted(names)
 
-# Schema for person-specific notify (no person field)
-PERSON_SIMPLE_NOTIFY_SCHEMA = vol.Schema({
-    vol.Required(ATTR_MESSAGE): cv.string,
-    vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-})
 
-PERSON_ADVANCED_NOTIFY_SCHEMA = vol.Schema({
-    vol.Required(ATTR_MESSAGE): cv.string,
-    vol.Optional(ATTR_TITLE, default="Home Assistant"): cv.string,
-    vol.Optional(CONF_CHANNEL): cv.string,
-    vol.Optional(CONF_PRIORITY, default="normal"): vol.In(["normal", "high", "low"]),
-    vol.Optional(CONF_CRITICAL, default=False): cv.boolean,
-    vol.Optional(CONF_TAG): cv.string,
-    vol.Optional(CONF_ACTIONS): list,
-    vol.Optional(CONF_PERSISTENT, default=False): cv.boolean,
-    vol.Optional(ATTR_DATA): dict,
-})
+def _build_simple_schema(person_names: list[str]):
+    """Build simple_notify schema with person dropdown."""
+    schema_dict = {}
+    if person_names:
+        schema_dict[vol.Required(ATTR_PERSON)] = vol.In(person_names)
+    else:
+        schema_dict[vol.Required(ATTR_PERSON)] = cv.string
+    schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
+    schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
+    return vol.Schema(schema_dict)
+
+
+def _build_advanced_schema(person_names: list[str]):
+    """Build advanced_notify schema with person dropdown."""
+    schema_dict = {}
+    if person_names:
+        schema_dict[vol.Required(ATTR_PERSON)] = vol.In(person_names)
+    else:
+        schema_dict[vol.Required(ATTR_PERSON)] = cv.string
+    schema_dict[vol.Required(ATTR_MESSAGE)] = cv.string
+    schema_dict[vol.Optional(ATTR_TITLE, default="Home Assistant")] = cv.string
+    schema_dict[vol.Optional(CONF_CHANNEL)] = cv.string
+    schema_dict[vol.Optional(CONF_PRIORITY, default="normal")] = vol.In(["normal", "high", "low"])
+    schema_dict[vol.Optional(CONF_CRITICAL, default=False)] = cv.boolean
+    schema_dict[vol.Optional(CONF_TAG)] = cv.string
+    schema_dict[vol.Optional(CONF_ACTIONS)] = list
+    schema_dict[vol.Optional(CONF_PERSISTENT, default=False)] = cv.boolean
+    schema_dict[vol.Optional(ATTR_DATA)] = dict
+    return vol.Schema(schema_dict)
 
 
 def _resolve_targets(entry_data: dict, entry_options: dict, name: str) -> list[str]:
@@ -71,7 +80,6 @@ def _resolve_targets(entry_data: dict, entry_options: dict, name: str) -> list[s
     persons = entry_data.get("persons", {})
     groups = entry_data.get("groups", {})
     
-    # Merge notify_targets from entry_options if present
     merged_persons = {}
     for pid, pconfig in persons.items():
         merged_persons[pid] = dict(pconfig) if pconfig else {}
@@ -79,7 +87,6 @@ def _resolve_targets(entry_data: dict, entry_options: dict, name: str) -> list[s
         if key in entry_options:
             merged_persons[pid]["notify_targets"] = entry_options[key]
     
-    # Check if it's a group
     for gid, gconfig in groups.items():
         if gconfig.get("name") == name or gid == name:
             targets = []
@@ -90,24 +97,12 @@ def _resolve_targets(entry_data: dict, entry_options: dict, name: str) -> list[s
                         break
             return targets
     
-    # Check if it's a person
     for pid, pconfig in merged_persons.items():
         if pconfig.get("name") == name or pid == name:
             return pconfig.get("notify_targets", [])
     
     _LOGGER.warning("Could not resolve person/group: %s", name)
     return []
-
-
-def _sanitize_service_name(name: str) -> str:
-    """Sanitize a name for use as HA service suffix."""
-    # Lowercase, replace spaces/special chars with underscore
-    sanitized = re.sub(r'[^a-z0-9_]', '_', name.lower())
-    # Collapse multiple underscores
-    sanitized = re.sub(r'_+', '_', sanitized)
-    # Strip leading/trailing underscores
-    sanitized = sanitized.strip('_')
-    return sanitized or "person"
 
 
 def _build_notify_data(call: ServiceCall) -> dict:
@@ -156,194 +151,118 @@ async def _send_notification(hass: HomeAssistant, targets: list[str], message: s
             _LOGGER.error("Failed to notify %s: %s", target, err)
 
 
+async def _register_services(hass: HomeAssistant) -> None:
+    """Register or re-register simple_notify and advanced_notify with current person list."""
+    person_names = _get_all_person_names(hass)
+    _LOGGER.debug("Registering notify_person services with persons: %s", person_names)
+    
+    # Remove existing services if present
+    if hass.services.has_service(DOMAIN, SERVICE_SIMPLE_NOTIFY):
+        hass.services.async_remove(DOMAIN, SERVICE_SIMPLE_NOTIFY)
+    if hass.services.has_service(DOMAIN, SERVICE_ADVANCED_NOTIFY):
+        hass.services.async_remove(DOMAIN, SERVICE_ADVANCED_NOTIFY)
+    
+    # Simple notify handler
+    async def async_simple_notify(call: ServiceCall) -> None:
+        person_name = call.data[ATTR_PERSON]
+        message = call.data[ATTR_MESSAGE]
+        title = call.data.get(ATTR_TITLE, "Home Assistant")
+        
+        targets = []
+        for key, edata in hass.data[DOMAIN].items():
+            if key == "services_registered":
+                continue
+            entry = edata.get("entry") if isinstance(edata, dict) else None
+            if entry and hasattr(entry, "data"):
+                t = _resolve_targets(entry.data, entry.options or {}, person_name)
+                if t:
+                    targets = t
+                    break
+        
+        if not targets:
+            _LOGGER.warning("No targets found for person/group: %s", person_name)
+            return
+        
+        await _send_notification(hass, targets, message, title)
+    
+    hass.services.async_register(
+        DOMAIN, SERVICE_SIMPLE_NOTIFY, async_simple_notify,
+        schema=_build_simple_schema(person_names)
+    )
+    
+    # Advanced notify handler
+    async def async_advanced_notify(call: ServiceCall) -> None:
+        person_name = call.data[ATTR_PERSON]
+        message = call.data[ATTR_MESSAGE]
+        title = call.data.get(ATTR_TITLE, "Home Assistant")
+        notify_data = _build_notify_data(call)
+        
+        targets = []
+        for key, edata in hass.data[DOMAIN].items():
+            if key == "services_registered":
+                continue
+            entry = edata.get("entry") if isinstance(edata, dict) else None
+            if entry and hasattr(entry, "data"):
+                t = _resolve_targets(entry.data, entry.options or {}, person_name)
+                if t:
+                    targets = t
+                    break
+        
+        if not targets:
+            _LOGGER.warning("No targets found for person/group: %s", person_name)
+            return
+        
+        await _send_notification(hass, targets, message, title, notify_data)
+    
+    hass.services.async_register(
+        DOMAIN, SERVICE_ADVANCED_NOTIFY, async_advanced_notify,
+        schema=_build_advanced_schema(person_names)
+    )
+    
+    hass.data[DOMAIN]["services_registered"] = True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Notify Person from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN].setdefault("person_services", set())
     
-    entry_data = entry.data
-    entry_options = entry.options or {}
-    
-    # --- Register generic simple_notify service (if not already registered) ---
-    if not hass.services.has_service(DOMAIN, SERVICE_SIMPLE_NOTIFY):
-        async def async_simple_notify(call: ServiceCall) -> None:
-            """Handle simple notify service call."""
-            person_name = call.data[ATTR_PERSON]
-            message = call.data[ATTR_MESSAGE]
-            title = call.data.get(ATTR_TITLE, "Home Assistant")
-            
-            # Find the entry that has this person
-            targets = []
-            for eid, edata in hass.data[DOMAIN].items():
-                if eid in ("person_services",):
-                    continue
-                e = edata.get("entry")
-                if e:
-                    t = _resolve_targets(e.data, e.options or {}, person_name)
-                    if t:
-                        targets = t
-                        break
-            
-            if not targets:
-                _LOGGER.warning("No targets found for person/group: %s", person_name)
-                return
-            
-            await _send_notification(hass, targets, message, title)
-        
-        hass.services.async_register(
-            DOMAIN, SERVICE_SIMPLE_NOTIFY, async_simple_notify, schema=SIMPLE_NOTIFY_SCHEMA
-        )
-    
-    # --- Register generic advanced_notify service (if not already registered) ---
-    if not hass.services.has_service(DOMAIN, SERVICE_ADVANCED_NOTIFY):
-        async def async_advanced_notify(call: ServiceCall) -> None:
-            """Handle advanced notify service call."""
-            person_name = call.data[ATTR_PERSON]
-            message = call.data[ATTR_MESSAGE]
-            title = call.data.get(ATTR_TITLE, "Home Assistant")
-            notify_data = _build_notify_data(call)
-            
-            # Find the entry that has this person
-            targets = []
-            for eid, edata in hass.data[DOMAIN].items():
-                if eid in ("person_services",):
-                    continue
-                e = edata.get("entry")
-                if e:
-                    t = _resolve_targets(e.data, e.options or {}, person_name)
-                    if t:
-                        targets = t
-                        break
-            
-            if not targets:
-                _LOGGER.warning("No targets found for person/group: %s", person_name)
-                return
-            
-            await _send_notification(hass, targets, message, title, notify_data)
-        
-        hass.services.async_register(
-            DOMAIN, SERVICE_ADVANCED_NOTIFY, async_advanced_notify, schema=ADVANCED_NOTIFY_SCHEMA
-        )
-    
-    # --- Register person-specific services ---
-    persons = entry_data.get("persons", {})
-    entry_person_services = []
-    
-    for pid, pconfig in persons.items():
-        person_name = pconfig.get("name", pid.replace("person.", ""))
-        sanitized = _sanitize_service_name(person_name)
-        service_name = f"notify_{sanitized}"
-        
-        # Check for conflicts across all entries
-        full_service = f"{DOMAIN}.{service_name}"
-        if full_service in hass.data[DOMAIN]["person_services"]:
-            _LOGGER.warning(
-                "Service %s already registered (another entry has person '%s'). Skipping.",
-                service_name, person_name
-            )
-            continue
-        
-        hass.data[DOMAIN]["person_services"].add(full_service)
-        entry_person_services.append(service_name)
-        
-        # Simple notify for this person
-        async def _make_simple_handler(p_name: str, e_id: str) -> callable:
-            async def handler(call: ServiceCall) -> None:
-                message = call.data[ATTR_MESSAGE]
-                title = call.data.get(ATTR_TITLE, "Home Assistant")
-                edata = hass.data[DOMAIN].get(e_id, {})
-                e = edata.get("entry")
-                if e:
-                    targets = _resolve_targets(e.data, e.options or {}, p_name)
-                    if targets:
-                        await _send_notification(hass, targets, message, title)
-                    else:
-                        _LOGGER.warning("No targets for person: %s", p_name)
-                else:
-                    _LOGGER.warning("Entry %s not found for person %s", e_id, p_name)
-            return handler
-        
-        hass.services.async_register(
-            DOMAIN,
-            service_name,
-            _make_simple_handler(person_name, entry.entry_id),
-            schema=PERSON_SIMPLE_NOTIFY_SCHEMA,
-        )
-        
-        # Advanced notify for this person
-        adv_service_name = f"{service_name}_advanced"
-        full_adv_service = f"{DOMAIN}.{adv_service_name}"
-        entry_person_services.append(adv_service_name)
-        hass.data[DOMAIN]["person_services"].add(full_adv_service)
-        
-        async def _make_advanced_handler(p_name: str, e_id: str) -> callable:
-            async def handler(call: ServiceCall) -> None:
-                message = call.data[ATTR_MESSAGE]
-                title = call.data.get(ATTR_TITLE, "Home Assistant")
-                notify_data = _build_notify_data(call)
-                edata = hass.data[DOMAIN].get(e_id, {})
-                e = edata.get("entry")
-                if e:
-                    targets = _resolve_targets(e.data, e.options or {}, p_name)
-                    if targets:
-                        await _send_notification(hass, targets, message, title, notify_data)
-                    else:
-                        _LOGGER.warning("No targets for person: %s", p_name)
-                else:
-                    _LOGGER.warning("Entry %s not found for person %s", e_id, p_name)
-            return handler
-        
-        hass.services.async_register(
-            DOMAIN,
-            adv_service_name,
-            _make_advanced_handler(person_name, entry.entry_id),
-            schema=PERSON_ADVANCED_NOTIFY_SCHEMA,
-        )
-        
-        _LOGGER.info(
-            "Registered person services: %s and %s for %s",
-            service_name, adv_service_name, person_name
-        )
-    
-    # Store entry and its service names for cleanup
+    # Store entry
     hass.data[DOMAIN][entry.entry_id] = {
         "entry": entry,
-        "person_services": entry_person_services,
     }
     
-    # Add listener for config entry updates
+    # Register (or re-register) services with updated person list
+    await _register_services(hass)
+    
+    # Add listener for config entry updates (options flow changes)
     @callback
     def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Handle options update."""
-        _LOGGER.debug("Config entry updated, services reloaded")
+        _LOGGER.debug("Config entry updated, re-registering services")
+        hass.async_create_task(_register_services(hass))
     
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     
-    _LOGGER.info("Notify Person loaded (v0.1.15)")
+    _LOGGER.info("Notify Person loaded (v0.1.16)")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    edata = hass.data[DOMAIN].pop(entry.entry_id, {})
-    person_services = edata.get("person_services", [])
-    
-    # Remove person-specific services for this entry
-    for svc in person_services:
-        hass.services.async_remove(DOMAIN, svc)
-        full = f"{DOMAIN}.{svc}"
-        hass.data[DOMAIN]["person_services"].discard(full)
+    hass.data[DOMAIN].pop(entry.entry_id, None)
     
     # Check if any entries remain
-    remaining_entries = [
-        k for k in hass.data[DOMAIN].keys()
-        if k not in ("person_services",)
-    ]
+    remaining = [k for k in hass.data.get(DOMAIN, {}).keys() if k not in ("services_registered",)]
     
-    if not remaining_entries:
-        # No entries left — remove generic services too
-        hass.services.async_remove(DOMAIN, SERVICE_SIMPLE_NOTIFY)
-        hass.services.async_remove(DOMAIN, SERVICE_ADVANCED_NOTIFY)
+    if not remaining:
+        # Remove services
+        if hass.services.has_service(DOMAIN, SERVICE_SIMPLE_NOTIFY):
+            hass.services.async_remove(DOMAIN, SERVICE_SIMPLE_NOTIFY)
+        if hass.services.has_service(DOMAIN, SERVICE_ADVANCED_NOTIFY):
+            hass.services.async_remove(DOMAIN, SERVICE_ADVANCED_NOTIFY)
         hass.data.pop(DOMAIN, None)
+    else:
+        # Re-register with remaining persons
+        hass.async_create_task(_register_services(hass))
     
     return True
