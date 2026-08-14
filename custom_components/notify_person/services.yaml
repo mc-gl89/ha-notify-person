@@ -98,3 +98,7 @@ advanced_notify:
       required: false
       selector:
         object:
+
+# Hinweis: Person-spezifische Services (z.B. notify_person.notify_marco)
+# werden dynamisch bei Setup registriert und erscheinen automatisch
+# unter Entwicklerwerkzeuge → Services nach Einrichtung eines Config Entries.

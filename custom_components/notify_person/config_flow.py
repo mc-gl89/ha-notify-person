@@ -88,8 +88,10 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # All persons configured -- skip groups step for now and create entry
             self._data["persons"] = self._persons_data
             self._data.pop("selected_persons", None)
+            first_pid = list(self._persons_data.keys())[0]
+            first_name = self._persons_data[first_pid]["name"]
             return self.async_create_entry(
-                title="Notify Person",
+                title=f"Notify: {first_name}",
                 data=self._data,
             )
 
@@ -141,8 +143,10 @@ class NotifyPersonConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Clean up temp data
             self._data.pop("selected_persons", None)
             
+            first_pid = list(self._persons_data.keys())[0]
+            first_name = self._persons_data[first_pid]["name"]
             return self.async_create_entry(
-                title="Notify Person",
+                title=f"Notify: {first_name}",
                 data=self._data,
             )
 
